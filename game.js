@@ -51,11 +51,15 @@ class MainScene extends Phaser.Scene {
 
     /** STATE **/
     this.currentLevel = 0;
-    this.score = 0;              // global score
-    this.levelCoins = 0;         // coins in current level
+    this.score = 0;
+    this.levelCoins = 0;
     this.coinsToNextLevel = 10;
     this.best = Number(localStorage.getItem("best")) || 0;
     this.gameOver = false;
+
+    /** MOBILE STATE **/
+    this.touchLeft = false;
+    this.touchRight = false;
 
     /** BACKGROUND **/
     this.bg = this.add.image(450, 250, this.levels[0].bg);
@@ -98,9 +102,27 @@ class MainScene extends Phaser.Scene {
       color: "#ffffff"
     }).setOrigin(0.5, 0);
 
-    /** INPUT **/
+    /** INPUT (DESKTOP) **/
     this.cursors = this.input.keyboard.createCursorKeys();
-    this.input.on("pointerdown", () => this.jump());
+
+    /** INPUT (MOBILE TOUCH) **/
+    this.input.on("pointerdown", (pointer) => {
+      if (pointer.x < this.scale.width / 2) {
+        this.touchLeft = true;
+      } else {
+        this.touchRight = true;
+      }
+
+      // Jump if touching lower area
+      if (pointer.y > this.scale.height * 0.6) {
+        this.jump();
+      }
+    });
+
+    this.input.on("pointerup", () => {
+      this.touchLeft = false;
+      this.touchRight = false;
+    });
 
     /** COLLISIONS **/
     this.physics.add.overlap(this.cat, this.coins, this.collectCoin, null, this);
@@ -113,15 +135,31 @@ class MainScene extends Phaser.Scene {
   update() {
     if (this.gameOver) return;
 
+    let moving = false;
+
+    // Keyboard
     if (this.cursors.left.isDown) {
       this.cat.setVelocityX(-240);
+      moving = true;
     } else if (this.cursors.right.isDown) {
       this.cat.setVelocityX(240);
-    } else {
+      moving = true;
+    }
+
+    // Mobile touch
+    if (this.touchLeft) {
+      this.cat.setVelocityX(-240);
+      moving = true;
+    } else if (this.touchRight) {
+      this.cat.setVelocityX(240);
+      moving = true;
+    }
+
+    if (!moving) {
       this.cat.setVelocityX(0);
     }
 
-    // Cleanup
+    // Cleanup off-screen objects
     this.coins.children.iterate(c => c && c.y > 550 && c.destroy());
     this.obstacles.children.iterate(o => o && o.y > 550 && o.destroy());
   }
@@ -224,7 +262,13 @@ class MainScene extends Phaser.Scene {
   }
 
   collectCoin(cat, coin) {
-    coin.destroy();
+    this.tweens.add({
+      targets: coin,
+      scale: coin.scale * 1.4,
+      alpha: 0,
+      duration: 150,
+      onComplete: () => coin.destroy()
+    });
 
     this.score++;
     this.levelCoins++;
@@ -261,9 +305,17 @@ class MainScene extends Phaser.Scene {
       localStorage.setItem("best", this.best);
     }
 
+    // Dark overlay for readability
+    this.add.rectangle(450, 250, 900, 500, 0x000000, 0.6);
+
     this.add.text(450, 220, win ? "ROUTE COMPLETED 🪐" : "GAME OVER", {
-      fontSize: "28px",
+      fontSize: "36px",
       color: "#ffffff"
+    }).setOrigin(0.5);
+
+    this.add.text(450, 270, "JUP: " + this.score, {
+      fontSize: "18px",
+      color: "#cccccc"
     }).setOrigin(0.5);
 
     this.time.delayedCall(2500, () => this.scene.restart());
