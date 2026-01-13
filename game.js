@@ -54,6 +54,7 @@ class MainScene extends Phaser.Scene {
     this.score = 0;
     this.levelCoins = 0;
     this.coinsToNextLevel = 10;
+    this.levelCompleted = false; // 🔒 IMPORTANT FIX
     this.best = Number(localStorage.getItem("best")) || 0;
     this.gameOver = false;
 
@@ -113,7 +114,6 @@ class MainScene extends Phaser.Scene {
         this.touchRight = true;
       }
 
-      // Jump if touching lower area
       if (pointer.y > this.scale.height * 0.6) {
         this.jump();
       }
@@ -137,20 +137,10 @@ class MainScene extends Phaser.Scene {
 
     let moving = false;
 
-    // Keyboard
-    if (this.cursors.left.isDown) {
+    if (this.cursors.left.isDown || this.touchLeft) {
       this.cat.setVelocityX(-240);
       moving = true;
-    } else if (this.cursors.right.isDown) {
-      this.cat.setVelocityX(240);
-      moving = true;
-    }
-
-    // Mobile touch
-    if (this.touchLeft) {
-      this.cat.setVelocityX(-240);
-      moving = true;
-    } else if (this.touchRight) {
+    } else if (this.cursors.right.isDown || this.touchRight) {
       this.cat.setVelocityX(240);
       moving = true;
     }
@@ -159,7 +149,7 @@ class MainScene extends Phaser.Scene {
       this.cat.setVelocityX(0);
     }
 
-    // Cleanup off-screen objects
+    // Cleanup
     this.coins.children.iterate(c => c && c.y > 550 && c.destroy());
     this.obstacles.children.iterate(o => o && o.y > 550 && o.destroy());
   }
@@ -175,10 +165,10 @@ class MainScene extends Phaser.Scene {
     const level = this.levels[this.currentLevel];
 
     this.levelCoins = 0;
+    this.levelCompleted = false; // 🔓 RESET LOCK
     this.progressText.setText(`0 / ${this.coinsToNextLevel}`);
     this.levelText.setText(level.name);
 
-    // Background transition
     this.tweens.add({
       targets: this.bg,
       alpha: 0,
@@ -211,6 +201,32 @@ class MainScene extends Phaser.Scene {
       callback: this.spawnObstacle,
       callbackScope: this
     });
+  }
+
+  collectCoin(cat, coin) {
+    if (this.levelCompleted) return; // 🔒 BLOCK MULTIPLE TRIGGERS
+
+    this.tweens.add({
+      targets: coin,
+      scale: coin.scale * 1.4,
+      alpha: 0,
+      duration: 150,
+      onComplete: () => coin.destroy()
+    });
+
+    this.score++;
+    this.levelCoins++;
+
+    this.scoreText.setText("JUP: " + this.score);
+    this.progressText.setText(`${this.levelCoins} / ${this.coinsToNextLevel}`);
+
+    if (this.levelCoins >= this.coinsToNextLevel) {
+      this.levelCompleted = true;
+
+      this.time.delayedCall(300, () => {
+        this.nextLevel();
+      });
+    }
   }
 
   nextLevel() {
@@ -251,40 +267,24 @@ class MainScene extends Phaser.Scene {
     });
   }
 
-  /** COINS **/
   spawnCoin() {
-    const x = Phaser.Math.Between(80, 820);
-    const coin = this.coins.create(x, -30, "coin");
+    const coin = this.coins.create(
+      Phaser.Math.Between(80, 820),
+      -30,
+      "coin"
+    );
 
     coin.setScale(Phaser.Math.FloatBetween(0.06, 0.09));
     coin.body.setVelocityY(Phaser.Math.Between(200, 320));
     coin.body.setAllowGravity(false);
   }
 
-  collectCoin(cat, coin) {
-    this.tweens.add({
-      targets: coin,
-      scale: coin.scale * 1.4,
-      alpha: 0,
-      duration: 150,
-      onComplete: () => coin.destroy()
-    });
-
-    this.score++;
-    this.levelCoins++;
-
-    this.scoreText.setText("JUP: " + this.score);
-    this.progressText.setText(`${this.levelCoins} / ${this.coinsToNextLevel}`);
-
-    if (this.levelCoins >= this.coinsToNextLevel) {
-      this.nextLevel();
-    }
-  }
-
-  /** RUGS **/
   spawnObstacle() {
-    const x = Phaser.Math.Between(120, 800);
-    const rug = this.obstacles.create(x, -40, "rug");
+    const rug = this.obstacles.create(
+      Phaser.Math.Between(120, 800),
+      -40,
+      "rug"
+    );
 
     rug.setScale(0.055);
     rug.body.setVelocityY(Phaser.Math.Between(260, 340));
@@ -305,7 +305,6 @@ class MainScene extends Phaser.Scene {
       localStorage.setItem("best", this.best);
     }
 
-    // Dark overlay for readability
     this.add.rectangle(450, 250, 900, 500, 0x000000, 0.6);
 
     this.add.text(450, 220, win ? "ROUTE COMPLETED 🪐" : "GAME OVER", {
