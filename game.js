@@ -78,11 +78,28 @@ class MainScene extends Phaser.Scene {
   }
 
   create() {
+    /** LEVEL DATA **/
     this.levels = [
-      { name: "Petronas Twin Towers", bg: "bg_petronas" },
-      { name: "Batu Caves", bg: "bg_batu" },
-      { name: "Merdeka Square", bg: "bg_merdeka" },
-      { name: "Bukit Bintang", bg: "bg_bukit" }
+      {
+        name: "Petronas Twin Towers",
+        bg: "bg_petronas",
+        comment: "Welcome to the best route 🌍"
+      },
+      {
+        name: "Batu Caves",
+        bg: "bg_batu",
+        comment: "Low slippage beats high gas ⛽"
+      },
+      {
+        name: "Merdeka Square",
+        bg: "bg_merdeka",
+        comment: "Freedom = permissionless finance"
+      },
+      {
+        name: "Bukit Bintang",
+        bg: "bg_bukit",
+        comment: "Speed wins the route ⚡"
+      }
     ];
 
     this.currentLevel = 0;
@@ -91,41 +108,45 @@ class MainScene extends Phaser.Scene {
     this.score = 0;
     this.gameOver = false;
 
-    // Movement state
     this.touchLeft = false;
     this.touchRight = false;
 
     const { width, height } = this.scale;
 
-    // Background
+    /** BACKGROUND **/
     this.bg = this.add.image(width / 2, height / 2, this.levels[0].bg);
     this.bg.setDisplaySize(width, height);
 
-    // Floor
+    /** FLOOR **/
     this.floor = this.add.rectangle(width / 2, height - 30, width, 18, 0x1f2433);
     this.physics.add.existing(this.floor, true);
 
-    // Cat
+    /** CAT **/
     this.cat = this.physics.add.sprite(120, height - 80, "cat");
     this.cat.setScale(0.12);
     this.cat.body.setGravityY(1400);
     this.cat.setCollideWorldBounds(true);
     this.physics.add.collider(this.cat, this.floor);
 
-    // Groups
+    /** GROUPS **/
     this.coins = this.physics.add.group();
     this.obstacles = this.physics.add.group();
 
-    // UI
+    /** UI **/
     this.scoreText = this.add.text(20, 20, "JUP: 0", { color: "#ffffff" });
+
     this.progressText = this.add.text(width / 2, 20, "0 / 10", {
       color: "#ffffff"
     }).setOrigin(0.5, 0);
 
-    // Keyboard
+    this.levelText = this.add.text(width / 2, 48, this.levels[0].name, {
+      color: "#cccccc",
+      fontSize: "16px"
+    }).setOrigin(0.5, 0);
+
+    /** INPUT **/
     this.cursors = this.input.keyboard.createCursorKeys();
 
-    // Mobile input
     this.input.on("pointerdown", (pointer) => {
       if (pointer.y > height * 0.65) {
         this.jump();
@@ -141,12 +162,19 @@ class MainScene extends Phaser.Scene {
       this.touchRight = false;
     });
 
-    // Collisions
+    /** COLLISIONS **/
     this.physics.add.overlap(this.cat, this.coins, this.collectCoin, null, this);
-    this.physics.add.collider(this.cat, this.obstacles, () => this.endGame(false), null, this);
+    this.physics.add.collider(
+      this.cat,
+      this.obstacles,
+      () => this.endGame(false),
+      null,
+      this
+    );
 
-    // Start spawners
+    /** START **/
     this.startSpawners();
+    this.showComment(this.levels[0].comment);
   }
 
   update() {
@@ -162,11 +190,8 @@ class MainScene extends Phaser.Scene {
       moving = true;
     }
 
-    if (!moving) {
-      this.cat.setVelocityX(0);
-    }
+    if (!moving) this.cat.setVelocityX(0);
 
-    // Cleanup
     this.coins.children.iterate(c => c && c.y > 600 && c.destroy());
     this.obstacles.children.iterate(o => o && o.y > 600 && o.destroy());
   }
@@ -180,7 +205,6 @@ class MainScene extends Phaser.Scene {
   /* ---------- SPAWNERS ---------- */
 
   startSpawners() {
-    // Coins
     this.coinTimer = this.time.addEvent({
       delay: 900,
       loop: true,
@@ -196,7 +220,6 @@ class MainScene extends Phaser.Scene {
       }
     });
 
-    // Rugs (obstacles)
     this.obstacleTimer = this.time.addEvent({
       delay: 1800,
       loop: true,
@@ -214,6 +237,8 @@ class MainScene extends Phaser.Scene {
     });
   }
 
+  /* ---------- GAME LOGIC ---------- */
+
   collectCoin(cat, coin) {
     coin.destroy();
 
@@ -222,6 +247,10 @@ class MainScene extends Phaser.Scene {
 
     this.scoreText.setText("JUP: " + this.score);
     this.progressText.setText(`${this.levelCoins} / ${this.coinsToNextLevel}`);
+
+    if (this.levelCoins === 1) {
+      this.showComment("Jupiter finds the best route 🪐");
+    }
 
     if (this.levelCoins === this.coinsToNextLevel) {
       this.nextLevel();
@@ -237,7 +266,48 @@ class MainScene extends Phaser.Scene {
       return;
     }
 
-    this.bg.setTexture(this.levels[this.currentLevel].bg);
+    const level = this.levels[this.currentLevel];
+
+    this.bg.setTexture(level.bg);
+    this.levelText.setText(level.name);
+    this.progressText.setText("0 / 10");
+
+    this.showComment(level.comment);
+  }
+
+  /* ---------- COMMENTS ---------- */
+
+  showComment(text) {
+    if (this.commentText) this.commentText.destroy();
+
+    this.commentText = this.add.text(
+      this.scale.width / 2,
+      100,
+      text,
+      {
+        fontSize: "16px",
+        color: "#ffffff",
+        backgroundColor: "#000000",
+        padding: { x: 12, y: 8 }
+      }
+    ).setOrigin(0.5);
+
+    this.commentText.setAlpha(0);
+
+    this.tweens.add({
+      targets: this.commentText,
+      alpha: 1,
+      duration: 200
+    });
+
+    this.time.delayedCall(1000, () => {
+      this.tweens.add({
+        targets: this.commentText,
+        alpha: 0,
+        duration: 200,
+        onComplete: () => this.commentText.destroy()
+      });
+    });
   }
 
   endGame(win) {
@@ -248,6 +318,7 @@ class MainScene extends Phaser.Scene {
     this.obstacleTimer.remove();
 
     this.add.rectangle(450, 250, 900, 500, 0x000000, 0.6);
+
     this.add.text(
       450,
       250,
