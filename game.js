@@ -10,41 +10,31 @@ class HomeScene extends Phaser.Scene {
   create() {
     const { width, height } = this.scale;
 
-    // Background
     const bg = this.add.image(width / 2, height / 2, "bg_home");
     bg.setDisplaySize(width, height);
 
-    // Dark overlay
     this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.6);
 
-    // Title
     this.add.text(width / 2, 80, "JUPIKL 🪐", {
       fontSize: "48px",
       color: "#ffffff",
       fontStyle: "bold"
     }).setOrigin(0.5);
 
-    // Subtitle
-    this.add.text(width / 2, 140,
+    this.add.text(
+      width / 2,
+      150,
       "A Jupiter-inspired game\nexploring Kuala Lumpur routes",
-      {
-        fontSize: "18px",
-        color: "#cccccc",
-        align: "center"
-      }
+      { fontSize: "18px", color: "#cccccc", align: "center" }
     ).setOrigin(0.5);
 
-    // Jupiter info
-    this.add.text(width / 2, 220,
-      "🪐 Jupiter finds the best route\n⚡ Speed + liquidity = Solana\n❌ Not all tokens are safe",
-      {
-        fontSize: "16px",
-        color: "#ffffff",
-        align: "center"
-      }
+    this.add.text(
+      width / 2,
+      230,
+      "🪐 Best routes\n⚡ Speed + liquidity\n❌ Avoid rugs",
+      { fontSize: "16px", color: "#ffffff", align: "center" }
     ).setOrigin(0.5);
 
-    // Start button
     const startBtn = this.add.text(width / 2, height - 180, "▶ START GAME", {
       fontSize: "28px",
       backgroundColor: "#1f2937",
@@ -56,17 +46,10 @@ class HomeScene extends Phaser.Scene {
       this.scene.start("MainScene");
     });
 
-    startBtn.on("pointerover", () => startBtn.setAlpha(0.8));
-    startBtn.on("pointerout", () => startBtn.setAlpha(1));
-
-    // Footer link
-    const footer = this.add.text(width / 2, height - 40,
-      "Built by lhajsol",
-      {
-        fontSize: "14px",
-        color: "#aaaaaa"
-      }
-    ).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    const footer = this.add.text(width / 2, height - 40, "Built by lhajsol", {
+      fontSize: "14px",
+      color: "#aaaaaa"
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
     footer.on("pointerdown", () => {
       window.open("https://x.com/lhajsol", "_blank");
@@ -106,6 +89,10 @@ class MainScene extends Phaser.Scene {
     this.score = 0;
     this.gameOver = false;
 
+    // ✅ MOVEMENT STATE
+    this.touchLeft = false;
+    this.touchRight = false;
+
     const { width, height } = this.scale;
 
     this.bg = this.add.image(width / 2, height / 2, this.levels[0].bg);
@@ -114,7 +101,8 @@ class MainScene extends Phaser.Scene {
     this.floor = this.add.rectangle(width / 2, height - 30, width, 18, 0x1f2433);
     this.physics.add.existing(this.floor, true);
 
-    this.cat = this.physics.add.sprite(120, height - 80, "cat").setScale(0.12);
+    this.cat = this.physics.add.sprite(120, height - 80, "cat");
+    this.cat.setScale(0.12);
     this.cat.body.setGravityY(1400);
     this.cat.setCollideWorldBounds(true);
 
@@ -128,19 +116,63 @@ class MainScene extends Phaser.Scene {
       color: "#ffffff"
     }).setOrigin(0.5, 0);
 
+    // ✅ KEYBOARD INPUT
     this.cursors = this.input.keyboard.createCursorKeys();
 
-    this.input.on("pointerdown", (p) => {
-      if (p.y > height * 0.6) this.jump();
-      else this.cat.setVelocityX(p.x < width / 2 ? -240 : 240);
+    // ✅ MOBILE TOUCH INPUT
+    this.input.on("pointerdown", (pointer) => {
+      if (pointer.y > height * 0.65) {
+        this.jump();
+      } else if (pointer.x < width / 2) {
+        this.touchLeft = true;
+      } else {
+        this.touchRight = true;
+      }
     });
 
-    this.input.on("pointerup", () => this.cat.setVelocityX(0));
+    this.input.on("pointerup", () => {
+      this.touchLeft = false;
+      this.touchRight = false;
+    });
 
     this.physics.add.overlap(this.cat, this.coins, this.collectCoin, null, this);
     this.physics.add.collider(this.cat, this.obstacles, () => this.endGame(), null, this);
 
     this.spawnTimers();
+  }
+
+  update() {
+    if (this.gameOver) return;
+
+    let moving = false;
+
+    // 🖥️ KEYBOARD
+    if (this.cursors.left.isDown) {
+      this.cat.setVelocityX(-240);
+      moving = true;
+    } else if (this.cursors.right.isDown) {
+      this.cat.setVelocityX(240);
+      moving = true;
+    }
+
+    // 📱 TOUCH
+    if (this.touchLeft) {
+      this.cat.setVelocityX(-240);
+      moving = true;
+    } else if (this.touchRight) {
+      this.cat.setVelocityX(240);
+      moving = true;
+    }
+
+    if (!moving) {
+      this.cat.setVelocityX(0);
+    }
+  }
+
+  jump() {
+    if (this.cat.body.blocked.down) {
+      this.cat.setVelocityY(-520);
+    }
   }
 
   spawnTimers() {
@@ -149,7 +181,9 @@ class MainScene extends Phaser.Scene {
       loop: true,
       callback: () => {
         const coin = this.coins.create(
-          Phaser.Math.Between(80, 820), -30, "coin"
+          Phaser.Math.Between(80, 820),
+          -30,
+          "coin"
         );
         coin.setScale(0.08);
         coin.body.setVelocityY(260);
@@ -183,18 +217,14 @@ class MainScene extends Phaser.Scene {
     this.bg.setTexture(this.levels[this.currentLevel].bg);
   }
 
-  jump() {
-    if (this.cat.body.blocked.down) {
-      this.cat.setVelocityY(-520);
-    }
-  }
-
   endGame(win = false) {
     if (this.gameOver) return;
     this.gameOver = true;
 
     this.add.rectangle(450, 250, 900, 500, 0x000000, 0.6);
-    this.add.text(450, 250,
+    this.add.text(
+      450,
+      250,
       win ? "ROUTE COMPLETED 🪐" : "GAME OVER",
       { fontSize: "36px", color: "#ffffff" }
     ).setOrigin(0.5);
