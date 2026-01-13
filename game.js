@@ -1,3 +1,5 @@
+/* ===================== HOME SCENE ===================== */
+
 class HomeScene extends Phaser.Scene {
   constructor() {
     super("HomeScene");
@@ -31,7 +33,7 @@ class HomeScene extends Phaser.Scene {
     this.add.text(
       width / 2,
       230,
-      "🪐 Best routes\n⚡ Speed + liquidity\n❌ Avoid rugs",
+      "🪐 Find the best route\n⚡ Speed + liquidity\n❌ Avoid rugs",
       { fontSize: "16px", color: "#ffffff", align: "center" }
     ).setOrigin(0.5);
 
@@ -89,37 +91,41 @@ class MainScene extends Phaser.Scene {
     this.score = 0;
     this.gameOver = false;
 
-    // ✅ MOVEMENT STATE
+    // Movement state
     this.touchLeft = false;
     this.touchRight = false;
 
     const { width, height } = this.scale;
 
+    // Background
     this.bg = this.add.image(width / 2, height / 2, this.levels[0].bg);
     this.bg.setDisplaySize(width, height);
 
+    // Floor
     this.floor = this.add.rectangle(width / 2, height - 30, width, 18, 0x1f2433);
     this.physics.add.existing(this.floor, true);
 
+    // Cat
     this.cat = this.physics.add.sprite(120, height - 80, "cat");
     this.cat.setScale(0.12);
     this.cat.body.setGravityY(1400);
     this.cat.setCollideWorldBounds(true);
-
     this.physics.add.collider(this.cat, this.floor);
 
+    // Groups
     this.coins = this.physics.add.group();
     this.obstacles = this.physics.add.group();
 
+    // UI
     this.scoreText = this.add.text(20, 20, "JUP: 0", { color: "#ffffff" });
     this.progressText = this.add.text(width / 2, 20, "0 / 10", {
       color: "#ffffff"
     }).setOrigin(0.5, 0);
 
-    // ✅ KEYBOARD INPUT
+    // Keyboard
     this.cursors = this.input.keyboard.createCursorKeys();
 
-    // ✅ MOBILE TOUCH INPUT
+    // Mobile input
     this.input.on("pointerdown", (pointer) => {
       if (pointer.y > height * 0.65) {
         this.jump();
@@ -135,10 +141,12 @@ class MainScene extends Phaser.Scene {
       this.touchRight = false;
     });
 
+    // Collisions
     this.physics.add.overlap(this.cat, this.coins, this.collectCoin, null, this);
-    this.physics.add.collider(this.cat, this.obstacles, () => this.endGame(), null, this);
+    this.physics.add.collider(this.cat, this.obstacles, () => this.endGame(false), null, this);
 
-    this.spawnTimers();
+    // Start spawners
+    this.startSpawners();
   }
 
   update() {
@@ -146,20 +154,10 @@ class MainScene extends Phaser.Scene {
 
     let moving = false;
 
-    // 🖥️ KEYBOARD
-    if (this.cursors.left.isDown) {
+    if (this.cursors.left.isDown || this.touchLeft) {
       this.cat.setVelocityX(-240);
       moving = true;
-    } else if (this.cursors.right.isDown) {
-      this.cat.setVelocityX(240);
-      moving = true;
-    }
-
-    // 📱 TOUCH
-    if (this.touchLeft) {
-      this.cat.setVelocityX(-240);
-      moving = true;
-    } else if (this.touchRight) {
+    } else if (this.cursors.right.isDown || this.touchRight) {
       this.cat.setVelocityX(240);
       moving = true;
     }
@@ -167,6 +165,10 @@ class MainScene extends Phaser.Scene {
     if (!moving) {
       this.cat.setVelocityX(0);
     }
+
+    // Cleanup
+    this.coins.children.iterate(c => c && c.y > 600 && c.destroy());
+    this.obstacles.children.iterate(o => o && o.y > 600 && o.destroy());
   }
 
   jump() {
@@ -175,7 +177,10 @@ class MainScene extends Phaser.Scene {
     }
   }
 
-  spawnTimers() {
+  /* ---------- SPAWNERS ---------- */
+
+  startSpawners() {
+    // Coins
     this.coinTimer = this.time.addEvent({
       delay: 900,
       loop: true,
@@ -190,10 +195,28 @@ class MainScene extends Phaser.Scene {
         coin.body.setAllowGravity(false);
       }
     });
+
+    // Rugs (obstacles)
+    this.obstacleTimer = this.time.addEvent({
+      delay: 1800,
+      loop: true,
+      callback: () => {
+        const rug = this.obstacles.create(
+          Phaser.Math.Between(120, 800),
+          -40,
+          "rug"
+        );
+        rug.setScale(0.07);
+        rug.body.setVelocityY(300);
+        rug.body.setAllowGravity(false);
+        rug.body.setImmovable(true);
+      }
+    });
   }
 
   collectCoin(cat, coin) {
     coin.destroy();
+
     this.score++;
     this.levelCoins++;
 
@@ -217,9 +240,12 @@ class MainScene extends Phaser.Scene {
     this.bg.setTexture(this.levels[this.currentLevel].bg);
   }
 
-  endGame(win = false) {
+  endGame(win) {
     if (this.gameOver) return;
     this.gameOver = true;
+
+    this.coinTimer.remove();
+    this.obstacleTimer.remove();
 
     this.add.rectangle(450, 250, 900, 500, 0x000000, 0.6);
     this.add.text(
