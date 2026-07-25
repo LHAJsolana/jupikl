@@ -15,9 +15,9 @@ class HomeScene extends Phaser.Scene {
     const bg = this.add.image(width / 2, height / 2, "bg_home");
     bg.setDisplaySize(width, height);
 
-    this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.6);
+    this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.62);
 
-    this.add.text(width / 2, 80, "JUPIKL 🪐", {
+    this.add.text(width / 2, 76, "JUPIKL", {
       fontSize: "48px",
       color: "#ffffff",
       fontStyle: "bold"
@@ -25,22 +25,29 @@ class HomeScene extends Phaser.Scene {
 
     this.add.text(
       width / 2,
-      150,
-      "A Jupiter-inspired game\nexploring Kuala Lumpur routes",
-      { fontSize: "18px", color: "#cccccc", align: "center" }
+      142,
+      "Find the best liquidity route across Kuala Lumpur",
+      { fontSize: "18px", color: "#d7dee8", align: "center" }
     ).setOrigin(0.5);
 
     this.add.text(
       width / 2,
-      230,
-      "🪐 Find the best route\n⚡ Speed + liquidity\n❌ Avoid rugs",
-      { fontSize: "16px", color: "#ffffff", align: "center" }
+      218,
+      "Collect liquidity coins\nUse shields, boosts, and magnets\nAvoid rug pools",
+      { fontSize: "16px", color: "#ffffff", align: "center", lineSpacing: 8 }
     ).setOrigin(0.5);
 
-    const startBtn = this.add.text(width / 2, height - 180, "▶ START GAME", {
-      fontSize: "28px",
-      backgroundColor: "#1f2937",
-      padding: { x: 24, y: 14 },
+    this.add.text(
+      width / 2,
+      310,
+      "Move: Arrow keys or tap left/right\nJump: Space, Up, or tap bottom",
+      { fontSize: "15px", color: "#cad5e2", align: "center", lineSpacing: 6 }
+    ).setOrigin(0.5);
+
+    const startBtn = this.add.text(width / 2, height - 105, "START ROUTE", {
+      fontSize: "26px",
+      backgroundColor: "#1f7a6b",
+      padding: { x: 26, y: 14 },
       color: "#ffffff"
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
@@ -48,7 +55,7 @@ class HomeScene extends Phaser.Scene {
       this.scene.start("MainScene");
     });
 
-    const footer = this.add.text(width / 2, height - 40, "Built by lhajsol", {
+    const footer = this.add.text(width / 2, height - 34, "Built by lhajsol", {
       fontSize: "14px",
       color: "#aaaaaa"
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
@@ -78,27 +85,58 @@ class MainScene extends Phaser.Scene {
   }
 
   create() {
-    /** LEVEL DATA **/
     this.levels = [
       {
         name: "Petronas Twin Towers",
+        route: "Petronas -> Batu Caves",
         bg: "bg_petronas",
-        comment: "Welcome to the best route 🌍"
+        comment: "Route scan started: deep liquidity ahead",
+        summary: "Best route found: Petronas -> Batu Caves, 0.30% slippage",
+        coinDelay: 900,
+        obstacleDelay: 1800,
+        coinSpeed: 260,
+        rugSpeed: 300,
+        spread: 80,
+        movingRugs: false
       },
       {
         name: "Batu Caves",
+        route: "Batu Caves -> Merdeka Square",
         bg: "bg_batu",
-        comment: "Low slippage beats high gas ⛽"
+        comment: "Low slippage beats high gas",
+        summary: "Best route found: Batu Caves -> Merdeka Square, 0.24% slippage",
+        coinDelay: 820,
+        obstacleDelay: 1550,
+        coinSpeed: 290,
+        rugSpeed: 330,
+        spread: 55,
+        movingRugs: true
       },
       {
         name: "Merdeka Square",
+        route: "Merdeka Square -> Bukit Bintang",
         bg: "bg_merdeka",
-        comment: "Freedom = permissionless finance"
+        comment: "Permissionless route unlocked",
+        summary: "Best route found: Merdeka Square -> Bukit Bintang, 0.18% slippage",
+        coinDelay: 760,
+        obstacleDelay: 1325,
+        coinSpeed: 315,
+        rugSpeed: 370,
+        spread: 35,
+        movingRugs: true
       },
       {
         name: "Bukit Bintang",
+        route: "Bukit Bintang -> Final Swap",
         bg: "bg_bukit",
-        comment: "Speed wins the route ⚡"
+        comment: "Priority fee boost recommended",
+        summary: "Best route found: Bukit Bintang -> Final Swap, 0.12% slippage",
+        coinDelay: 690,
+        obstacleDelay: 1125,
+        coinSpeed: 345,
+        rugSpeed: 420,
+        spread: 20,
+        movingRugs: true
       }
     ];
 
@@ -106,46 +144,42 @@ class MainScene extends Phaser.Scene {
     this.levelCoins = 0;
     this.coinsToNextLevel = 10;
     this.score = 0;
+    this.lives = 3;
     this.gameOver = false;
+    this.invulnerable = false;
 
     this.touchLeft = false;
     this.touchRight = false;
+    this.shieldActive = false;
+    this.boostUntil = 0;
+    this.magnetUntil = 0;
 
     const { width, height } = this.scale;
 
-    /** BACKGROUND **/
     this.bg = this.add.image(width / 2, height / 2, this.levels[0].bg);
     this.bg.setDisplaySize(width, height);
 
-    /** FLOOR **/
     this.floor = this.add.rectangle(width / 2, height - 30, width, 18, 0x1f2433);
     this.physics.add.existing(this.floor, true);
 
-    /** CAT **/
     this.cat = this.physics.add.sprite(120, height - 80, "cat");
     this.cat.setScale(0.12);
     this.cat.body.setGravityY(1400);
     this.cat.setCollideWorldBounds(true);
     this.physics.add.collider(this.cat, this.floor);
 
-    /** GROUPS **/
     this.coins = this.physics.add.group();
     this.obstacles = this.physics.add.group();
+    this.powerups = this.physics.add.group();
 
-    /** UI **/
-    this.scoreText = this.add.text(20, 20, "JUP: 0", { color: "#ffffff" });
+    this.createHud();
+    this.updateHud();
 
-    this.progressText = this.add.text(width / 2, 20, "0 / 10", {
-      color: "#ffffff"
-    }).setOrigin(0.5, 0);
-
-    this.levelText = this.add.text(width / 2, 48, this.levels[0].name, {
-      color: "#cccccc",
-      fontSize: "16px"
-    }).setOrigin(0.5, 0);
-
-    /** INPUT **/
     this.cursors = this.input.keyboard.createCursorKeys();
+    this.jumpKeys = this.input.keyboard.addKeys({
+      space: Phaser.Input.Keyboard.KeyCodes.SPACE,
+      up: Phaser.Input.Keyboard.KeyCodes.UP
+    });
 
     this.input.on("pointerdown", (pointer) => {
       if (pointer.y > height * 0.65) {
@@ -162,171 +196,436 @@ class MainScene extends Phaser.Scene {
       this.touchRight = false;
     });
 
-    /** COLLISIONS **/
     this.physics.add.overlap(this.cat, this.coins, this.collectCoin, null, this);
-    this.physics.add.collider(
-      this.cat,
-      this.obstacles,
-      () => this.endGame(false),
-      null,
-      this
-    );
+    this.physics.add.overlap(this.cat, this.powerups, this.collectPowerup, null, this);
+    this.physics.add.collider(this.cat, this.obstacles, this.hitObstacle, null, this);
 
-    /** START **/
     this.startSpawners();
     this.showComment(this.levels[0].comment);
   }
 
-  update() {
+  update(time) {
     if (this.gameOver) return;
 
+    const moveSpeed = time < this.boostUntil ? 345 : 240;
     let moving = false;
 
     if (this.cursors.left.isDown || this.touchLeft) {
-      this.cat.setVelocityX(-240);
+      this.cat.setVelocityX(-moveSpeed);
       moving = true;
     } else if (this.cursors.right.isDown || this.touchRight) {
-      this.cat.setVelocityX(240);
+      this.cat.setVelocityX(moveSpeed);
       moving = true;
     }
 
     if (!moving) this.cat.setVelocityX(0);
 
-    this.coins.children.iterate(c => c && c.y > 600 && c.destroy());
-    this.obstacles.children.iterate(o => o && o.y > 600 && o.destroy());
+    if (
+      Phaser.Input.Keyboard.JustDown(this.jumpKeys.space) ||
+      Phaser.Input.Keyboard.JustDown(this.jumpKeys.up)
+    ) {
+      this.jump();
+    }
+
+    if (time < this.magnetUntil) {
+      this.pullCoinsTowardPlayer();
+    }
+
+    this.moveRugsWithinBounds();
+    this.cleanupFallingObjects();
+    this.updatePowerupStatus(time);
   }
 
   jump() {
     if (this.cat.body.blocked.down) {
       this.cat.setVelocityY(-520);
+      this.playTone("jump");
     }
   }
 
-  /* ---------- SPAWNERS ---------- */
+  createHud() {
+    const { width } = this.scale;
+
+    this.add.rectangle(width / 2, 38, width, 76, 0x07111f, 0.82);
+    this.scoreText = this.add.text(18, 13, "", { color: "#ffffff", fontSize: "18px" });
+    this.livesText = this.add.text(18, 43, "", { color: "#ffffff", fontSize: "16px" });
+
+    this.levelText = this.add.text(width / 2, 10, "", {
+      color: "#ffffff",
+      fontSize: "18px",
+      fontStyle: "bold"
+    }).setOrigin(0.5, 0);
+
+    this.routeText = this.add.text(width / 2, 37, "", {
+      color: "#cad5e2",
+      fontSize: "14px"
+    }).setOrigin(0.5, 0);
+
+    this.progressBack = this.add.rectangle(width - 178, 24, 150, 12, 0x1f2937);
+    this.progressFill = this.add.rectangle(width - 253, 24, 0, 12, 0x3ddc97).setOrigin(0, 0.5);
+    this.progressText = this.add.text(width - 103, 43, "", {
+      color: "#ffffff",
+      fontSize: "14px"
+    }).setOrigin(0.5, 0);
+
+    this.powerupText = this.add.text(width - 18, 13, "", {
+      color: "#ffe08a",
+      fontSize: "14px",
+      align: "right"
+    }).setOrigin(1, 0);
+  }
+
+  updateHud() {
+    const level = this.levels[this.currentLevel];
+    const progress = this.levelCoins / this.coinsToNextLevel;
+
+    this.scoreText.setText("JUP: " + this.score);
+    this.livesText.setText("Lives: " + this.lives);
+    this.levelText.setText(level.name);
+    this.routeText.setText(level.route);
+    this.progressFill.width = 150 * progress;
+    this.progressText.setText(`${this.levelCoins} / ${this.coinsToNextLevel} liquidity`);
+  }
+
+  updatePowerupStatus(time) {
+    const active = [];
+    if (this.shieldActive) active.push("Shield");
+    if (time < this.boostUntil) active.push("Boost");
+    if (time < this.magnetUntil) active.push("Magnet");
+
+    this.powerupText.setText(active.join("\n"));
+  }
 
   startSpawners() {
+    const level = this.levels[this.currentLevel];
+
+    if (this.coinTimer) this.coinTimer.remove();
+    if (this.obstacleTimer) this.obstacleTimer.remove();
+    if (this.powerupTimer) this.powerupTimer.remove();
+
     this.coinTimer = this.time.addEvent({
-      delay: 900,
+      delay: level.coinDelay,
       loop: true,
-      callback: () => {
-        const coin = this.coins.create(
-          Phaser.Math.Between(80, 820),
-          -30,
-          "coin"
-        );
-        coin.setScale(0.08);
-        coin.body.setVelocityY(260);
-        coin.body.setAllowGravity(false);
-      }
+      callback: () => this.spawnCoin()
     });
 
     this.obstacleTimer = this.time.addEvent({
-      delay: 1800,
+      delay: level.obstacleDelay,
       loop: true,
-      callback: () => {
-        const rug = this.obstacles.create(
-          Phaser.Math.Between(120, 800),
-          -40,
-          "rug"
-        );
-        rug.setScale(0.07);
-        rug.body.setVelocityY(300);
-        rug.body.setAllowGravity(false);
-        rug.body.setImmovable(true);
-      }
+      callback: () => this.spawnObstacle()
+    });
+
+    this.powerupTimer = this.time.addEvent({
+      delay: 6500,
+      loop: true,
+      callback: () => this.spawnPowerup()
     });
   }
 
-  /* ---------- GAME LOGIC ---------- */
+  spawnCoin() {
+    const level = this.levels[this.currentLevel];
+    const { width } = this.scale;
+    const left = Math.max(55, level.spread);
+    const right = Math.min(width - 55, width - level.spread);
+    const coin = this.coins.create(Phaser.Math.Between(left, right), -30, "coin");
+
+    coin.setScale(0.08);
+    coin.body.setVelocityY(level.coinSpeed);
+    coin.body.setAllowGravity(false);
+  }
+
+  spawnObstacle() {
+    const level = this.levels[this.currentLevel];
+    const { width } = this.scale;
+    const rug = this.obstacles.create(Phaser.Math.Between(90, width - 90), -40, "rug");
+
+    rug.setScale(0.07);
+    rug.body.setVelocityY(level.rugSpeed);
+    rug.body.setVelocityX(level.movingRugs ? Phaser.Math.Between(-90, 90) : 0);
+    rug.body.setAllowGravity(false);
+    rug.body.setImmovable(true);
+    rug.isMoving = level.movingRugs;
+  }
+
+  spawnPowerup() {
+    const { width } = this.scale;
+    const types = ["shield", "boost", "magnet"];
+    const type = Phaser.Utils.Array.GetRandom(types);
+    const powerup = this.powerups.create(Phaser.Math.Between(80, width - 80), -35, "coin");
+
+    powerup.powerupType = type;
+    powerup.setScale(0.1);
+    powerup.setTint(this.getPowerupTint(type));
+    powerup.body.setVelocityY(230);
+    powerup.body.setAllowGravity(false);
+  }
+
+  getPowerupTint(type) {
+    if (type === "shield") return 0x66d9ff;
+    if (type === "boost") return 0xffc857;
+    return 0xb887ff;
+  }
 
   collectCoin(cat, coin) {
     coin.destroy();
 
     this.score++;
     this.levelCoins++;
-
-    this.scoreText.setText("JUP: " + this.score);
-    this.progressText.setText(`${this.levelCoins} / ${this.coinsToNextLevel}`);
+    this.playTone("coin");
+    this.updateHud();
 
     if (this.levelCoins === 1) {
-      this.showComment("Jupiter finds the best route 🪐");
+      this.showComment("Jupiter finds the best route");
     }
 
-    if (this.levelCoins === this.coinsToNextLevel) {
+    if (this.levelCoins >= this.coinsToNextLevel) {
       this.nextLevel();
     }
   }
 
-  nextLevel() {
-    this.currentLevel++;
-    this.levelCoins = 0;
+  collectPowerup(cat, powerup) {
+    const type = powerup.powerupType;
+    powerup.destroy();
 
-    if (this.currentLevel >= this.levels.length) {
-      this.endGame(true);
+    if (type === "shield") {
+      this.shieldActive = true;
+      this.showComment("Low slippage shield ready");
+    } else if (type === "boost") {
+      this.boostUntil = this.time.now + 5500;
+      this.showComment("Priority fee boost active");
+    } else {
+      this.magnetUntil = this.time.now + 6000;
+      this.showComment("Route optimizer magnet active");
+    }
+
+    this.playTone("powerup");
+  }
+
+  hitObstacle(cat, rug) {
+    if (this.invulnerable || this.gameOver) return;
+
+    rug.destroy();
+
+    if (this.shieldActive) {
+      this.shieldActive = false;
+      this.flashPlayer(0x66d9ff);
+      this.showComment("Shield absorbed a bad pool");
+      this.playTone("shield");
       return;
     }
 
-    const level = this.levels[this.currentLevel];
+    this.lives--;
+    this.invulnerable = true;
+    this.updateHud();
+    this.flashPlayer(0xff6b6b);
+    this.playTone("hit");
 
-    this.bg.setTexture(level.bg);
-    this.levelText.setText(level.name);
-    this.progressText.setText("0 / 10");
+    if (this.lives <= 0) {
+      this.endGame(false);
+      return;
+    }
 
-    this.showComment(level.comment);
+    this.showComment("Bad pool avoided. Re-routing...");
+    this.time.delayedCall(1100, () => {
+      this.invulnerable = false;
+      this.cat.clearTint();
+    });
   }
 
-  /* ---------- COMMENTS ---------- */
+  nextLevel() {
+    const completed = this.levels[this.currentLevel];
+
+    this.currentLevel++;
+    this.levelCoins = 0;
+    this.coins.clear(true, true);
+    this.obstacles.clear(true, true);
+    this.powerups.clear(true, true);
+
+    if (this.currentLevel >= this.levels.length) {
+      this.endGame(true, completed.summary);
+      return;
+    }
+
+    const next = this.levels[this.currentLevel];
+    this.showRouteSummary(completed.summary);
+    this.bg.setTexture(next.bg);
+    this.updateHud();
+    this.startSpawners();
+    this.time.delayedCall(1300, () => this.showComment(next.comment));
+  }
+
+  showRouteSummary(text) {
+    const { width, height } = this.scale;
+    const panel = this.add.container(width / 2, height / 2);
+    const rect = this.add.rectangle(0, 0, 640, 90, 0x07111f, 0.9);
+    const label = this.add.text(0, 0, text, {
+      fontSize: "20px",
+      color: "#ffffff",
+      align: "center",
+      wordWrap: { width: 580 }
+    }).setOrigin(0.5);
+
+    panel.add([rect, label]);
+    panel.setAlpha(0);
+
+    this.tweens.add({ targets: panel, alpha: 1, duration: 180, yoyo: true, hold: 1000 });
+    this.time.delayedCall(1400, () => panel.destroy());
+  }
 
   showComment(text) {
     if (this.commentText) this.commentText.destroy();
 
-    this.commentText = this.add.text(
+    const target = this.add.text(
       this.scale.width / 2,
-      100,
+      98,
       text,
       {
         fontSize: "16px",
         color: "#ffffff",
-        backgroundColor: "#000000",
+        backgroundColor: "#07111f",
         padding: { x: 12, y: 8 }
       }
     ).setOrigin(0.5);
 
-    this.commentText.setAlpha(0);
+    this.commentText = target;
+    target.setAlpha(0);
 
     this.tweens.add({
-      targets: this.commentText,
+      targets: target,
       alpha: 1,
-      duration: 200
+      duration: 180
     });
 
-    this.time.delayedCall(1000, () => {
+    this.time.delayedCall(1200, () => {
       this.tweens.add({
-        targets: this.commentText,
+        targets: target,
         alpha: 0,
-        duration: 200,
-        onComplete: () => this.commentText.destroy()
+        duration: 180,
+        onComplete: () => target.destroy()
       });
     });
   }
 
-  endGame(win) {
+  pullCoinsTowardPlayer() {
+    this.coins.children.iterate((coin) => {
+      if (!coin || !coin.body) return;
+
+      const distance = Phaser.Math.Distance.Between(this.cat.x, this.cat.y, coin.x, coin.y);
+      if (distance > 170) return;
+
+      this.physics.moveToObject(coin, this.cat, 360);
+    });
+  }
+
+  moveRugsWithinBounds() {
+    const { width } = this.scale;
+
+    this.obstacles.children.iterate((rug) => {
+      if (!rug || !rug.body || !rug.isMoving) return;
+
+      if (rug.x < 35 && rug.body.velocity.x < 0) {
+        rug.body.setVelocityX(Math.abs(rug.body.velocity.x));
+      }
+
+      if (rug.x > width - 35 && rug.body.velocity.x > 0) {
+        rug.body.setVelocityX(-Math.abs(rug.body.velocity.x));
+      }
+    });
+  }
+
+  cleanupFallingObjects() {
+    const limit = this.scale.height + 80;
+
+    this.coins.children.iterate((coin) => coin && coin.y > limit && coin.destroy());
+    this.obstacles.children.iterate((rug) => rug && rug.y > limit && rug.destroy());
+    this.powerups.children.iterate((powerup) => powerup && powerup.y > limit && powerup.destroy());
+  }
+
+  flashPlayer(color) {
+    this.cat.setTint(color);
+    this.tweens.add({
+      targets: this.cat,
+      alpha: 0.45,
+      duration: 90,
+      yoyo: true,
+      repeat: 5,
+      onComplete: () => {
+        this.cat.setAlpha(1);
+        if (!this.invulnerable) this.cat.clearTint();
+      }
+    });
+  }
+
+  playTone(type) {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+
+    if (!this.audioContext) {
+      this.audioContext = new AudioContext();
+    }
+
+    const settings = {
+      coin: [880, 0.07, "sine"],
+      jump: [360, 0.06, "square"],
+      powerup: [660, 0.14, "triangle"],
+      shield: [520, 0.12, "sine"],
+      hit: [120, 0.18, "sawtooth"],
+      win: [740, 0.25, "triangle"]
+    }[type];
+
+    if (!settings) return;
+
+    const [frequency, duration, wave] = settings;
+    const now = this.audioContext.currentTime;
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+
+    osc.type = wave;
+    osc.frequency.setValueAtTime(frequency, now);
+    gain.gain.setValueAtTime(0.06, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+    osc.connect(gain);
+    gain.connect(this.audioContext.destination);
+    osc.start(now);
+    osc.stop(now + duration);
+  }
+
+  endGame(win, finalSummary) {
     if (this.gameOver) return;
     this.gameOver = true;
 
-    this.coinTimer.remove();
-    this.obstacleTimer.remove();
+    if (this.coinTimer) this.coinTimer.remove();
+    if (this.obstacleTimer) this.obstacleTimer.remove();
+    if (this.powerupTimer) this.powerupTimer.remove();
 
-    this.add.rectangle(450, 250, 900, 500, 0x000000, 0.6);
+    this.playTone(win ? "win" : "hit");
+
+    const { width, height } = this.scale;
+    this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.64);
 
     this.add.text(
-      450,
-      250,
-      win ? "ROUTE COMPLETED 🪐" : "GAME OVER",
-      { fontSize: "36px", color: "#ffffff" }
+      width / 2,
+      height / 2 - 42,
+      win ? "ROUTE COMPLETED" : "GAME OVER",
+      { fontSize: "36px", color: "#ffffff", fontStyle: "bold" }
     ).setOrigin(0.5);
 
-    this.time.delayedCall(2500, () => {
+    this.add.text(
+      width / 2,
+      height / 2 + 12,
+      win ? finalSummary : "The route hit too many bad pools.",
+      { fontSize: "18px", color: "#d7dee8", align: "center", wordWrap: { width: 620 } }
+    ).setOrigin(0.5);
+
+    this.add.text(
+      width / 2,
+      height / 2 + 62,
+      "Final JUP: " + this.score,
+      { fontSize: "18px", color: "#ffffff" }
+    ).setOrigin(0.5);
+
+    this.time.delayedCall(3200, () => {
       this.scene.start("HomeScene");
     });
   }
